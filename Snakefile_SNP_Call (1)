@@ -1,0 +1,230 @@
+import os
+import shutil
+import snakemake.io
+import glob
+
+
+'''
+Adapt your workflow to work to run:
+- Fastqc
+- BWA
+- SNP calling using bcftools
+- SNP normalization & filtering
+- SNP annotation (using SNPeff)
+
+Every step MUST contain at least one check that the run was succesful - as discussed in class
+One check must yield an image - note - this has to be your own code - not a copy of mine or somebody else. 
+Be creative.
+
+Document your Snakefile & the code embedded in your Snakefile
+
+Generate a Snakefile report (an actual html file).
+
+Write an extra rule (so not a part of an existing rule) that extracts any SNPs into 
+a new VCF file that (according to SNPeff) associates with APP, SOD21 and DYRK1A. 
+This VCF file must be called genes.vcf and be in the root of your Snakemake work folder
+
+You must run your snakemake as a SLURM job (using `sbatch`)
+
+Your workflow should run with JUST the snakefile (see points later as well).
+So we will grade this assignment by:
+- create a work folder
+- copy your Snakefile into that folder
+- run snakemake with sbatch
+- generate the snakemake report
+
+After running the steps described above we expect to see in the snakemake work folder:
+A Snakefile report html file
+A genes.vcf file with the SNPs associating with the 3 genes.
+Bonus Question:
+
+- write an extra rule that creates an image with a heatmap showing how many SNPs 
+associate with the three above mentioned genes 
+per individual! This image is to be embedded in the Snakefile report. 
+
+'''
+
+
+
+# Chromosome 9 fasta file
+#genome_db = "/staging/leuven/stg_00079/teaching/hg38_9/chr9.fa"
+
+# Chromosome 21 fasta file
+genome_db = "/lustre1/project/stg_00079/teaching/hg38_21/chr21.fa"
+
+# Changing dir to $VSC_SCRATCH
+#os.chdir("/scratch/leuven/359/vsc35907/")
+
+# Creating working directory if it doest exist already
+if not os.path.exists("./snp_call_snakemake"):
+	os.mkdir("snp_call_snakemake")
+	os.mkdir("snp_call_snakemake/fastq")
+else:
+	if not os.path.exists("./snp_call_snakemake/fastq"):
+		os.mkdir("snp_call_snakemake/fastq")
+		
+# Changing dir to VSC_SCRATCH/snp_call_snakemake 
+os.chdir("snp_call_snakemake")
+
+
+# Source directory containing fastq files
+#source_directory = '/staging/leuven/stg_00079/teaching/data_manual_snpcall/'
+source_directory = '/staging/leuven/stg_00079/teaching/1000genomes/'
+
+# Destination directory
+destination_directory = './fastq'
+
+# Wildcard pattern to match files
+wildcard_pattern = 'HG0???1.*.fq.gz'
+
+# Get list of files matching the wildcard pattern
+files_to_copy = glob.glob(os.path.join(source_directory, wildcard_pattern))
+
+# Copy each file to the destination directory
+for file_path in files_to_copy:
+	#if not os.path.exists(file_path):
+	shutil.copy(file_path, destination_directory)
+
+# ----- Main -----
+SAMPLES, = glob_wildcards(destination_directory + "/{sample}.fq.gz")
+print(SAMPLES)
+
+rule all:
+	input:
+		fastqc_zip = expand("fastqc_output/{sample}_fastqc.zip", sample=SAMPLES),
+		vcf= "genes.vcf"
+
+rule gunzip:
+	input: 
+		gz = "fastq/{sample}.fq.gz"
+	output:
+		fq = "fastq/{sample}.fq"
+	shell:
+		"gunzip {input.gz}"
+
+rule fastqc:
+	input: 
+		fq = "fastq/{sample}.fq",
+	output: 
+		fastqc_zip="fastqc_output/{sample}_fastqc.zip",
+		html = "fastqc_output/{sample}_fastqc.html",
+		summary_txt = "fastqc_output/{sample}_fastqc/summary.txt",
+		summary_data = "fastqc_output/{sample}_fastqc/fastqc_data.txt"
+	shell:
+		"fastqc -o fastqc_output {input.fq} --extract"
+
+
+rule bwa_map:
+    input:
+        db = genome_db,
+        fa = "fastq/{sample}.fq"
+    output:
+        "mapped_reads/{sample}.bam"
+    shell:
+        "bwa mem {input} | samtools sort -o {output}"
+
+
+rule samtools_index:
+    input:
+        "mapped_reads/{sample}.bam"
+    output:
+        "mapped_reads/{sample}.bam.bai"
+    shell:
+        "samtools index {input}"
+
+
+rule bcftools_call:
+    input:
+        db = genome_db,
+        bam = expand("mapped_reads/{sample}.bam", sample=SAMPLES),
+        bai = expand("mapped_reads/{sample}.bam.bai", sample=SAMPLES)
+    output:
+        "calls/raw_snps.vcf"
+    shell:
+        "bcftools mpileup -f {input.db} {input.bam} | "
+        "bcftools call -mv - > {output}"
+
+rule snp_cleaning:
+	input:
+		db = genome_db,
+		snps = "calls/raw_snps.vcf"
+	output:
+		"calls/clean_snps.vcf"
+	shell:
+		"cat {input.snps} | "
+		"vt decompose - | "
+		"vt normalize -n -r {input.db} - | "
+		"vt view -f 'QUAL>20' -h - "
+		"> {output}"
+
+rule snp_annotation:
+	input:
+		snps = "calls/clean_snps.vcf",
+		SNPEFF_JAR = "/lustre1/project/stg_00079/teaching/I0U19a_conda_2024/share/snpeff-5.2-0/snpEff.jar"
+	output:
+		"calls/annotated_snps.vcf"
+	shell:
+		"java -Xmx3400m -jar {input.SNPEFF_JAR} eff hg38 -dataDir '/staging/leuven/stg_00079/teaching/snpeff_db' {input.snps} "
+		"> calls/annotated_snps.vcf"
+
+rule plot_quals:
+	input: "calls/clean_snps.vcf"
+	output: "done.txt"
+	shell: 
+		"echo 'Voce eh fodo karalho!!!' "
+		"> done.txt "
+
+
+# TODO: Write an extra rule (so not a part of an existing rule) that extracts any SNPs into 
+# a new VCF file that (according to SNPeff) associates with APP, SOD21 and DYRK1A. 
+# This VCF file must be called genes.vcf and be in the root of your Snakemake work folder
+
+rule genes_of_interest:
+	input: 
+		"calls/annotated_snps.vcf"
+	output: 
+		"genes.vcf"
+	shell:
+		# Selecting all lines with the words "APP" or "SOD21" or "DYRK1A"
+		"grep -i -E 'APP|SOD21|DYRK1A' {input} > {output}"
+		
+
+
+
+   
+# input:
+    #     "calls/annotated_snps.vcf"
+    # output:
+    #     "done.txt"
+    # script:
+	# 	"touch done.txt"
+
+# rule fastqc:
+#     input:
+#         fq="000.fastq/{file}.fastq",
+#     output:
+#         fastqc_zip="010.fastqc/{file}_fastqc.zip",
+#         html="010.fastqc/{file}_fastqc.html",
+#         summarydata="010.fastqc/{file}_fastqc/fastqc_data.txt",
+#         rep1=report("010.fastqc/{file}_fastqc/Images/per_base_quality.png", category="Fastqc", subcategory="Per base quality"),
+#         rep2=report("010.fastqc/{file}_fastqc/Images/per_base_sequence_content.png", category="Fastqc", subcategory="Per base sequence content"),
+#         rep3=report("010.fastqc/{file}_fastqc/summary.txt", category="Fastqc", subcategory="Summary text")
+#     shell:
+#         """
+#         echo "Input Fastq: {input.fq} "
+#         fastqc -o 010.fastqc {input.fq} --extract
+
+#         ## Q&D testing
+#         ## A simple tests would be to see if output files exists
+#         ##   - but that is already done by snakemake
+
+#         # So - I'm testing here to see if are there FAILs in the snakemake output. If so
+#         # I happy to crash the workflow.
+#         if grep FAIL {output.rep3}; then
+#             # Found a fail! -
+#             echo "FAILED!"
+#             # false yields a non-zero return code - which is an error
+#             false
+#         fi
+
+#         """
