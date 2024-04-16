@@ -6,18 +6,22 @@ import glob
 
 '''
 Adapt your workflow to work to run:
-- Fastqc
-- BWA
-- SNP calling using bcftools
-- SNP normalization & filtering
-- SNP annotation (using SNPeff)
+- Fastqc 						(done)
+- BWA 							(done)
+- SNP calling using bcftools 	(done)
+- SNP normalization & filtering (done)
+- SNP annotation (using SNPeff) (done)
 
+# TODO:
 Every step MUST contain at least one check that the run was succesful - as discussed in class
+
+# TODO:
 One check must yield an image - note - this has to be your own code - not a copy of mine or somebody else. 
 Be creative.
 
 Document your Snakefile & the code embedded in your Snakefile
 
+# TODO: Improve on Report
 Generate a Snakefile report (an actual html file).
 
 Write an extra rule (so not a part of an existing rule) that extracts any SNPs into 
@@ -38,16 +42,12 @@ A Snakefile report html file
 A genes.vcf file with the SNPs associating with the 3 genes.
 Bonus Question:
 
+# TODO:
 - write an extra rule that creates an image with a heatmap showing how many SNPs 
 associate with the three above mentioned genes 
 per individual! This image is to be embedded in the Snakefile report. 
 
 '''
-
-
-
-# Chromosome 9 fasta file
-#genome_db = "/staging/leuven/stg_00079/teaching/hg38_9/chr9.fa"
 
 # Chromosome 21 fasta file
 genome_db = "/lustre1/project/stg_00079/teaching/hg38_21/chr21.fa"
@@ -63,12 +63,10 @@ else:
 	if not os.path.exists("./snp_call_snakemake/fastq"):
 		os.mkdir("snp_call_snakemake/fastq")
 		
-# Changing dir to VSC_SCRATCH/snp_call_snakemake 
+# Changing directory to snp_call_snakemake 
 os.chdir("snp_call_snakemake")
 
-
 # Source directory containing fastq files
-#source_directory = '/staging/leuven/stg_00079/teaching/data_manual_snpcall/'
 source_directory = '/staging/leuven/stg_00079/teaching/1000genomes/'
 
 # Destination directory
@@ -80,36 +78,36 @@ wildcard_pattern = 'HG0???1.*.fq.gz'
 # Get list of files matching the wildcard pattern
 files_to_copy = glob.glob(os.path.join(source_directory, wildcard_pattern))
 
-# Copy each file to the destination directory
+# Copy each file to the destination directory (if it does not already exist)
 for file_path in files_to_copy:
-	#if not os.path.exists(file_path):
-	shutil.copy(file_path, destination_directory)
+	if not os.path.exists('./fastq/' + file_path[len(source_directory):]):
+		shutil.copy(file_path, destination_directory)
 
-# ----- Main -----
+# ----------------- SNAKEMAKE RULES ----------------- #
+
 SAMPLES, = glob_wildcards(destination_directory + "/{sample}.fq.gz")
-print(SAMPLES)
 
 rule all:
 	input:
 		fastqc_zip = expand("fastqc_output/{sample}_fastqc.zip", sample=SAMPLES),
-		vcf= "genes.vcf"
+		vcf = "genes.vcf"
 
 rule gunzip:
 	input: 
-		gz = "fastq/{sample}.fq.gz"
+		"fastq/{sample}.fq.gz"
 	output:
-		fq = "fastq/{sample}.fq"
+		"fastq/{sample}.fq"
 	shell:
-		"gunzip {input.gz}"
+		"gunzip {input}"
 
 rule fastqc:
 	input: 
 		fq = "fastq/{sample}.fq",
 	output: 
+		html="fastqc_output/{sample}_fastqc.html",
 		fastqc_zip="fastqc_output/{sample}_fastqc.zip",
-		html = "fastqc_output/{sample}_fastqc.html",
 		summary_txt = "fastqc_output/{sample}_fastqc/summary.txt",
-		summary_data = "fastqc_output/{sample}_fastqc/fastqc_data.txt"
+		summary_data = "fastqc_output/{sample}_fastqc/fastqc_data.txt",
 	shell:
 		"fastqc -o fastqc_output {input.fq} --extract"
 
@@ -119,7 +117,7 @@ rule bwa_map:
         db = genome_db,
         fa = "fastq/{sample}.fq"
     output:
-        "mapped_reads/{sample}.bam"
+        report("mapped_reads/{sample}.bam", category="Bam/Bai files")
     shell:
         "bwa mem {input} | samtools sort -o {output}"
 
@@ -128,7 +126,7 @@ rule samtools_index:
     input:
         "mapped_reads/{sample}.bam"
     output:
-        "mapped_reads/{sample}.bam.bai"
+        report("mapped_reads/{sample}.bam.bai", category="Bam/Bai files")
     shell:
         "samtools index {input}"
 
@@ -139,7 +137,7 @@ rule bcftools_call:
         bam = expand("mapped_reads/{sample}.bam", sample=SAMPLES),
         bai = expand("mapped_reads/{sample}.bam.bai", sample=SAMPLES)
     output:
-        "calls/raw_snps.vcf"
+        report("calls/raw_snps.vcf", category="VCF files")
     shell:
         "bcftools mpileup -f {input.db} {input.bam} | "
         "bcftools call -mv - > {output}"
@@ -149,7 +147,7 @@ rule snp_cleaning:
 		db = genome_db,
 		snps = "calls/raw_snps.vcf"
 	output:
-		"calls/clean_snps.vcf"
+		report("calls/clean_snps.vcf", category="VCF files")
 	shell:
 		"cat {input.snps} | "
 		"vt decompose - | "
@@ -162,20 +160,12 @@ rule snp_annotation:
 		snps = "calls/clean_snps.vcf",
 		SNPEFF_JAR = "/lustre1/project/stg_00079/teaching/I0U19a_conda_2024/share/snpeff-5.2-0/snpEff.jar"
 	output:
-		"calls/annotated_snps.vcf"
+		report("calls/annotated_snps.vcf", category="VCF files")
 	shell:
 		"java -Xmx3400m -jar {input.SNPEFF_JAR} eff hg38 -dataDir '/staging/leuven/stg_00079/teaching/snpeff_db' {input.snps} "
 		"> calls/annotated_snps.vcf"
 
-rule plot_quals:
-	input: "calls/clean_snps.vcf"
-	output: "done.txt"
-	shell: 
-		"echo 'Voce eh fodo karalho!!!' "
-		"> done.txt "
-
-
-# TODO: Write an extra rule (so not a part of an existing rule) that extracts any SNPs into 
+# Write an extra rule (so not a part of an existing rule) that extracts any SNPs into 
 # a new VCF file that (according to SNPeff) associates with APP, SOD21 and DYRK1A. 
 # This VCF file must be called genes.vcf and be in the root of your Snakemake work folder
 
@@ -183,11 +173,11 @@ rule genes_of_interest:
 	input: 
 		"calls/annotated_snps.vcf"
 	output: 
-		"genes.vcf"
+		report("genes.vcf", category="VCF files")
 	shell:
 		# Selecting all lines with the words "APP" or "SOD21" or "DYRK1A"
 		"grep -i -E 'APP|SOD21|DYRK1A' {input} > {output}"
-		
+			
 
 
 

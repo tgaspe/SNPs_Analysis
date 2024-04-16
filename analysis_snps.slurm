@@ -5,8 +5,8 @@
 #SBATCH --partition=batch
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --job-name=chromosome1_analysis
-#SBATCH --time=15:00   # Walltime in HH:MM:SS
+#SBATCH --job-name=snps_analysis
+#SBATCH --time=20:00   # Walltime in HH:MM:SS
 #SBATCH --mem=15G     # Memory in gigabytes
 #SBATCH --cpus-per-task=1   # Number of CPU cores
 #SBATCH --output=snps_analysis.out   # Standard output file
@@ -19,4 +19,4 @@ export PATH=/lustre1/project/stg_00079/teaching/I0U19a_conda_2024/bin/:$PATH
 
 # Run the SNPs analysis script
 snakemake -c1 -s "./Snakefile_SNP_Call"
-
+snakemake -c1 -s "./Snakefile_SNP_Call" --report report.html
