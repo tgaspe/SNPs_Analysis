@@ -98,7 +98,10 @@ rule gunzip:
 	output:
 		"fastq/{sample}.fq"
 	shell:
-		"gunzip {input}"
+		'''
+		gunzip {input}
+		'''
+		
 
 rule fastqc:
 	input: 
@@ -165,29 +168,20 @@ rule snp_annotation:
 		"java -Xmx3400m -jar {input.SNPEFF_JAR} eff hg38 -dataDir '/staging/leuven/stg_00079/teaching/snpeff_db' {input.snps} "
 		"> calls/annotated_snps.vcf"
 
-# Write an extra rule (so not a part of an existing rule) that extracts any SNPs into 
-# a new VCF file that (according to SNPeff) associates with APP, SOD21 and DYRK1A. 
-# This VCF file must be called genes.vcf and be in the root of your Snakemake work folder
-
 rule genes_of_interest:
 	input: 
 		"calls/annotated_snps.vcf"
 	output: 
 		report("genes.vcf", category="VCF files")
 	shell:
-		# Selecting all lines with the words "APP" or "SOD21" or "DYRK1A"
-		"grep -i -E 'APP|SOD21|DYRK1A' {input} > {output}"
-			
+		# Selecting all lines with the words "APP" or "SOD1" or "DYRK1A" in the annotated snps file
+		"grep -i -E 'APP' {output} | grep -v 'intergenic_region' > {output}"
+		"grep -i -E 'SOD1' {output} | grep -v 'intergenic_region' >> {output}"
+		"grep -i -E 'DYRK1A' {output} | grep -v 'intergenic_region' >> {output}"
 
 
 
    
-# input:
-    #     "calls/annotated_snps.vcf"
-    # output:
-    #     "done.txt"
-    # script:
-	# 	"touch done.txt"
 
 # rule fastqc:
 #     input:
