@@ -21,7 +21,6 @@ Be creative.
 
 Document your Snakefile & the code embedded in your Snakefile
 
-# TODO: Improve on Report
 Generate a Snakefile report (an actual html file).
 
 Write an extra rule (so not a part of an existing rule) that extracts any SNPs into 
@@ -89,8 +88,8 @@ SAMPLES, = glob_wildcards(destination_directory + "/{sample}.fq.gz")
 
 rule all:
 	input:
-		fastqc_zip = expand("fastqc_output/{sample}_fastqc.zip", sample=SAMPLES),
-		vcf = "genes.vcf"
+		fastqc_zip=expand("fastqc_output/{sample}_fastqc.zip", sample=SAMPLES),
+		vcf="genes.vcf"
 
 rule gunzip:
 	input: 
@@ -98,25 +97,25 @@ rule gunzip:
 	output:
 		"fastq/{sample}.fq"
 	shell:
-		"""
+		'''
 		# Unzipping the fastq files
 		gunzip {input} || (echo "gunzip failed" && exit 1)
 		
 		# Checking if fasta file is divisible by 4
-		nr_lines=$(wc -l {sample} | cut -d ' ' -f1)
+		nr_lines=$(wc -l {output} | cut -d " " -f1)
 		echo $(($nr_lines % 4))
-  		"""
+		'''
 		
 
 
 rule fastqc:
 	input: 
-		fq = "fastq/{sample}.fq",
+		fq="fastq/{sample}.fq",
 	output: 
 		html="fastqc_output/{sample}_fastqc.html",
 		fastqc_zip="fastqc_output/{sample}_fastqc.zip",
-		summary_txt = "fastqc_output/{sample}_fastqc/summary.txt",
-		summary_data = "fastqc_output/{sample}_fastqc/fastqc_data.txt",
+		summary_txt="fastqc_output/{sample}_fastqc/summary.txt",
+		summary_data="fastqc_output/{sample}_fastqc/fastqc_data.txt",
 	shell:
 		# Running fastqc on the fastq files
 		'''
@@ -129,19 +128,15 @@ rule fastqc:
 		fi
 		'''
 		
-		
-
-
 rule bwa_map:
-    input:
-        db = genome_db,
-        fa = "fastq/{sample}.fq"
-    output:
-        report("mapped_reads/{sample}.bam", category="Bam/Bai files")
-    shell:
+	input:
+		db=genome_db,
+		fa="fastq/{sample}.fq"
+	output:
+		report("mapped_reads/{sample}.bam", category="Bam/Bai files")
+	shell:
 		'''
 		bwa mem {input} | samtools sort -o {output}
-
 		# Quality Control
 		samtools view -H {output}
 		echo "headers ok!"
@@ -149,23 +144,21 @@ rule bwa_map:
 		samtools view {output} | head
 		echo "looks like bam"
 		echo "---------"
-		samtools idxstats {output} | awk '$1 == "chr21" {print $0}'
+		samtools idxstats {output} 
 		echo "reads map to chromosome 21"
 		echo "---------"
 		'''
-        
 		
-
-
+		
 rule samtools_index:
-    input:
-        "mapped_reads/{sample}.bam"
-    output:
-        report("mapped_reads/{sample}.bam.bai", category="Bam/Bai files")
-    shell:
+	input:
+		"mapped_reads/{sample}.bam"
+	output:
+		report("mapped_reads/{sample}.bam.bai", category="Bam/Bai files")
+	shell:
 		'''
 		samtools index {input}
-
+		
 		# Checks if file exist and has a size greater than 0
 		if [ ! -s {output} ]; then
 			echo "Error: Index file not created"
@@ -174,25 +167,23 @@ rule samtools_index:
 		'''
         
 
-
 rule bcftools_call:
-    input:
-        db = genome_db,
-        bam = expand("mapped_reads/{sample}.bam", sample=SAMPLES),
-        bai = expand("mapped_reads/{sample}.bam.bai", sample=SAMPLES)
-    output:
-        report("calls/raw_snps.vcf", category="VCF files")
-    shell:
+	input:
+		db = genome_db,
+		bam = expand("mapped_reads/{sample}.bam", sample=SAMPLES),
+		bai = expand("mapped_reads/{sample}.bam.bai", sample=SAMPLES)
+	output:
+		report("calls/raw_snps.vcf", category="VCF files")
+	shell:
 		'''
-        bcftools mpileup -f {input.db} {input.bam} | \
-        bcftools call -mv - > {output}
-
+		bcftools mpileup -f {input.db} {input.bam} | bcftools call -mv - > {output}
 		# Checks if file exist and has a size greater than 0
 		if [ ! -s {output} ]; then
 			echo "Error: raw VCF file not created"
 			exit 1
 		fi
 		'''
+
 
 rule snp_cleaning:
 	input:
