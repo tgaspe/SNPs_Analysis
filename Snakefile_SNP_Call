@@ -98,10 +98,16 @@ rule gunzip:
 	output:
 		"fastq/{sample}.fq"
 	shell:
-		'''
-		gunzip {input}
-		'''
+		"""
+		# Unzipping the fastq files
+		gunzip {input} || (echo "gunzip failed" && exit 1)
 		
+		# Checking if fasta file is divisible by 4
+		nr_lines=$(wc -l {sample} | cut -d ' ' -f1)
+		echo $(($nr_lines % 4))
+  		"""
+		
+
 
 rule fastqc:
 	input: 
@@ -112,7 +118,18 @@ rule fastqc:
 		summary_txt = "fastqc_output/{sample}_fastqc/summary.txt",
 		summary_data = "fastqc_output/{sample}_fastqc/fastqc_data.txt",
 	shell:
-		"fastqc -o fastqc_output {input.fq} --extract"
+		# Running fastqc on the fastq files
+		'''
+		fastqc -o fastqc_output {input.fq} --extract
+		
+		# Checking if fastqc produced any FAILs
+		if grep -q "FAIL" {output.summary_txt}; then
+			echo "Error: FastQC failed for {wildcards.sample}"
+			#exit 1
+		fi
+		'''
+		
+		
 
 
 rule bwa_map:
@@ -122,7 +139,22 @@ rule bwa_map:
     output:
         report("mapped_reads/{sample}.bam", category="Bam/Bai files")
     shell:
-        "bwa mem {input} | samtools sort -o {output}"
+		'''
+		bwa mem {input} | samtools sort -o {output}
+
+		# Quality Control
+		samtools view -H {output}
+		echo "headers ok!"
+		echo "---------"
+		samtools view {output} | head
+		echo "looks like bam"
+		echo "---------"
+		samtools idxstats {output} | awk '$1 == "chr21" {print $0}'
+		echo "reads map to chromosome 21"
+		echo "---------"
+		'''
+        
+		
 
 
 rule samtools_index:
@@ -131,7 +163,16 @@ rule samtools_index:
     output:
         report("mapped_reads/{sample}.bam.bai", category="Bam/Bai files")
     shell:
-        "samtools index {input}"
+		'''
+		samtools index {input}
+
+		# Checks if file exist and has a size greater than 0
+		if [ ! -s {output} ]; then
+			echo "Error: Index file not created"
+			exit 1
+		fi
+		'''
+        
 
 
 rule bcftools_call:
@@ -142,8 +183,16 @@ rule bcftools_call:
     output:
         report("calls/raw_snps.vcf", category="VCF files")
     shell:
-        "bcftools mpileup -f {input.db} {input.bam} | "
-        "bcftools call -mv - > {output}"
+		'''
+        bcftools mpileup -f {input.db} {input.bam} | \
+        bcftools call -mv - > {output}
+
+		# Checks if file exist and has a size greater than 0
+		if [ ! -s {output} ]; then
+			echo "Error: raw VCF file not created"
+			exit 1
+		fi
+		'''
 
 rule snp_cleaning:
 	input:
@@ -152,11 +201,21 @@ rule snp_cleaning:
 	output:
 		report("calls/clean_snps.vcf", category="VCF files")
 	shell:
-		"cat {input.snps} | "
-		"vt decompose - | "
-		"vt normalize -n -r {input.db} - | "
-		"vt view -f 'QUAL>20' -h - "
-		"> {output}"
+		'''
+		# Decompose, normalize and filter SNPs
+		cat {input.snps} | \
+		vt decompose - | \
+		vt normalize -n -r {input.db} - | \
+		vt view -f 'QUAL>20' -h - \
+		> {output}"
+		
+		# Checks if file exist and has a size greater than 0
+		if [ ! -s {output} ]; then
+			echo "Error: clean VCF file not created"
+			exit 1
+		fi
+		'''
+		
 
 rule snp_annotation:
 	input:
@@ -165,8 +224,14 @@ rule snp_annotation:
 	output:
 		report("calls/annotated_snps.vcf", category="VCF files")
 	shell:
+		# Annotate SNPs using SNPeff
 		"java -Xmx3400m -jar {input.SNPEFF_JAR} eff hg38 -dataDir '/staging/leuven/stg_00079/teaching/snpeff_db' {input.snps} "
 		"> calls/annotated_snps.vcf"
+		# Checks if file exist and has a size greater than 0"
+		"if [ ! -s {output} ]; then \n"
+		"	echo 'Error: annotated VCF file not created' \n"
+		"	exit 1 \n"
+		"fi"
 
 rule genes_of_interest:
 	input: 
@@ -178,7 +243,11 @@ rule genes_of_interest:
 		"grep -i -E 'APP' {output} | grep -v 'intergenic_region' > {output}"
 		"grep -i -E 'SOD1' {output} | grep -v 'intergenic_region' >> {output}"
 		"grep -i -E 'DYRK1A' {output} | grep -v 'intergenic_region' >> {output}"
-
+		# Checks if file exist and has a size greater than 0"
+		"if [ ! -s {output} ]; then \n"
+		"	echo 'Error: genes VCF file not created' \n"
+		"	exit 1 \n"
+		"fi"
 
 
    
