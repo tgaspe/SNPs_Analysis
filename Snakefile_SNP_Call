@@ -106,7 +106,11 @@ rule gunzip:
 		
 		# Checking if fasta file is divisible by 4
 		nr_lines=$(wc -l {output} | cut -d " " -f1)
-		echo $(($nr_lines % 4))
+		result=$(($nr_lines % 4))
+		if [ $result -ne 0 ]; then
+			echo "Error: Fastq file is not divisible by 4"
+			exit 1
+		fi
 		'''
 		
 
@@ -120,14 +124,14 @@ rule fastqc:
 		summary_txt="fastqc_output/{sample}_fastqc/summary.txt",
 		summary_data="fastqc_output/{sample}_fastqc/fastqc_data.txt",
 	shell:
-		# Running fastqc on the fastq files
 		'''
+		# Running fastqc on the fastq files
 		fastqc -o fastqc_output {input.fq} --extract
 		
 		# Checking if fastqc produced any FAILs
 		if grep -q "FAIL" {output.summary_txt}; then
 			echo "Error: FastQC failed for {wildcards.sample}"
-			#exit 1
+			exit 1
 		fi
 		'''
 		
@@ -139,7 +143,9 @@ rule bwa_map:
 		report("mapped_reads/{sample}.bam", category="Bam/Bai files")
 	shell:
 		'''
+		# Mapping the reads to the reference genome
 		bwa mem {input} | samtools sort -o {output}
+		
 		# Quality Control
 		samtools view -H {output}
 		echo "headers ok!"
@@ -160,6 +166,7 @@ rule samtools_index:
 		report("mapped_reads/{sample}.bam.bai", category="Bam/Bai files")
 	shell:
 		'''
+		# Indexing the bam files
 		samtools index {input}
 		
 		# Checks if file exist and has a size greater than 0
@@ -179,7 +186,9 @@ rule bcftools_call:
 		report("calls/raw_snps.vcf", category="VCF files")
 	shell:
 		'''
+		# SNP calling using bcftools
 		bcftools mpileup -f {input.db} {input.bam} | bcftools call -mv - > {output}
+		
 		# Checks if file exist and has a size greater than 0
 		if [ ! -s {output} ]; then
 			echo "Error: raw VCF file not created"
@@ -201,7 +210,7 @@ rule snp_cleaning:
 		vt decompose - | \
 		vt normalize -n -r {input.db} - | \
 		vt view -f 'QUAL>20' -h - \
-		> {output}"
+		> {output}
 		
 		# Checks if file exist and has a size greater than 0
 		if [ ! -s {output} ]; then
@@ -218,14 +227,17 @@ rule snp_annotation:
 	output:
 		report("calls/annotated_snps.vcf", category="VCF files")
 	shell:
+		"""
 		# Annotate SNPs using SNPeff
-		"java -Xmx3400m -jar {input.SNPEFF_JAR} eff hg38 -dataDir '/staging/leuven/stg_00079/teaching/snpeff_db' {input.snps} "
-		"> calls/annotated_snps.vcf"
-		# Checks if file exist and has a size greater than 0"
-		"if [ ! -s {output} ]; then \n"
-		"	echo 'Error: annotated VCF file not created' \n"
-		"	exit 1 \n"
-		"fi"
+		java -Xmx3400m -jar {input.SNPEFF_JAR} eff hg38 -dataDir '/staging/leuven/stg_00079/teaching/snpeff_db' {input.snps} \
+		> calls/annotated_snps.vcf
+		
+		# Checks if file exist and has a size greater than 0
+		if [ ! -s {output} ]; then
+			echo 'Error: annotated VCF file not created'
+			exit 1 
+		fi
+		"""
 
 rule genes_of_interest:
 	input: 
@@ -233,15 +245,21 @@ rule genes_of_interest:
 	output: 
 		report("genes.vcf", category="VCF files")
 	shell:
-		# Selecting all lines with the words "APP" or "SOD1" or "DYRK1A" in the annotated snps file
-		"grep -i -E 'APP' {output} | grep -v 'intergenic_region' > {output}"
-		"grep -i -E 'SOD1' {output} | grep -v 'intergenic_region' >> {output}"
-		"grep -i -E 'DYRK1A' {output} | grep -v 'intergenic_region' >> {output}"
-		# Checks if file exist and has a size greater than 0"
-		"if [ ! -s {output} ]; then \n"
-		"	echo 'Error: genes VCF file not created' \n"
-		"	exit 1 \n"
-		"fi"
+		"""
+		# Selecting all lines with the words 'APP' or 'SOD1' or 'DYRK1A' in the annotated snps file
+		grep -i -E 'APP' {output} | grep -v 'intergenic_region' > {output}
+		grep -i -E 'SOD1' {output} | grep -v 'intergenic_region' >> {output}
+		grep -i -E 'DYRK1A' {output} | grep -v 'intergenic_region' >> {output}
+		
+		# Checks if file exist and has a size greater than 0
+		if [ ! -s {output} ]; then 
+			echo 'Error: genes VCF file not created' 
+			exit 1 
+		fi
+		"""
+		
+
+		
 
 
    
