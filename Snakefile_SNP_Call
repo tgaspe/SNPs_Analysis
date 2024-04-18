@@ -45,7 +45,10 @@ Bonus Question:
 - write an extra rule that creates an image with a heatmap showing how many SNPs 
 associate with the three above mentioned genes 
 per individual! This image is to be embedded in the Snakefile report. 
-
+		sample 1 sample 2 sample 3
+gene 1	6		0		1
+gene 2  3		1		0
+gene 3  1		4		1
 '''
 
 # Chromosome 21 fasta file

@@ -16,26 +16,62 @@ def parse_vcf(vcf_file):
                     sample_names = [os.path.basename(sample)[0:7] for sample in sample_names]  # Extract filename only
                 else:
                     continue
-            fields = line.strip().split('\t')
-            chrom, pos, id, ref, alt, qual, fil, info, fmt, *genotypes = fields
-            genotypes = [gt.split(':')[0] for gt in genotypes]  # Extract genotype data
+            else:
+                fields = line.strip().split('\t')
+                chrom, pos, id, ref, alt, qual, fil, info, fmt, *genotypes = fields
+                genotypes = [gt.split(':')[0] for gt in genotypes]  # Extract genotype data
 
-            snp = {
-                "pos": pos,
-                "ref": ref,
-                "alt": alt,
-                "genotypes": genotypes
-            }
-            snps.append(snp)
+                snp = {
+                    "pos": pos,
+                    "ref": ref,
+                    "alt": alt,
+                    "qual": qual,
+                    "gene": info.split("|")[3],  # gene of interest is the 4th field in the INFO column
+                    "genotypes": genotypes
+                }
+                snps.append(snp)
 
     return snps, sample_names
 
 
 # Function to prepare data for heatmap
-def prepare_data(snps, samples):
+def prepare_data1(snps, samples):
+    data = np.zeros((3, len(samples)))
+    for snp in snps:
+        if snp["gene"] == "APP":
+            for j, genotype in enumerate(snp["genotypes"]):
+                # Homozygous alternative
+                if genotype == '1/1':
+                    data[0, j] += 1  
+                # Heterozygous
+                elif genotype == '0/1' or genotype == '1/0':
+                    data[0, j] += 1  
+                else: # Missing data or homozygous reference
+                    continue 
+        elif snp["gene"] == "SOD1":
+            for j, genotype in enumerate(snp["genotypes"]):
+                # Homozygous alternative
+                if genotype == '1/1':
+                    data[1, j] += 1  
+                # Heterozygous
+                elif genotype == '0/1' or genotype == '1/0':
+                    data[1, j] += 1  
+                else:
+                    continue
+        elif snp["gene"] == "DYRK1A":
+            for j, genotype in enumerate(snp["genotypes"]):
+                # Homozygous alternative
+                if genotype == '1/1':
+                    data[2, j] += 1  
+                # Heterozygous
+                elif genotype == '0/1' or genotype == '1/0':
+                    data[2, j] += 1  
+                else:
+                    continue
+    return data
 
+def prepare_data(snps, samples):
     data = np.zeros((len(snps), len(samples)))
-    
     for i, snp in enumerate(snps):
         for j, genotype in enumerate(snp["genotypes"]):
             if genotype == '0/0':
@@ -45,7 +81,7 @@ def prepare_data(snps, samples):
             elif genotype == '1/1':
                 data[i, j] = 2  # Homozygous alternate
             else:
-                data[i, j] = -1  # Missing data
+                data[i, j] = -1 # Missing data
     return data
 
 # Function to generate heatmap
@@ -69,13 +105,33 @@ def generate_heatmap(data, samples):
     plt.savefig('heatmap.png', dpi=300, bbox_inches='tight')  # Save the figure with higher resolution and tight bounding box
     #plt.show()
 
+def generate_heatmap1(data, samples):
+    plt.figure(figsize=(10, 8))
+    plt.imshow(data, cmap="coolwarm", aspect='auto', interpolation='nearest')
+    # Add colorbar with discrete values
+    
+    plt.title('SNP Heatmap')
+    # Add data values in the cells of the heatmap
+    for i in range(data.shape[0]):
+        for j in range(data.shape[1]):
+            plt.text(j, i, data[i, j], ha='center', va='center', color='black')
+    plt.xlabel('Samples')
+    plt.xticks(np.arange(len(samples)), samples, rotation=90)
+    plt.ylabel('Genes')
+    plt.yticks(np.arange(len(data)), range(len(data)))
+    plt.tight_layout()
+    plt.savefig('heatmap1.png', dpi=300, bbox_inches='tight')
+    #plt.show()
 
 if __name__ == "__main__":
     # Example usage
     vcf_file = 'genes.vcf'
     snps, samples = parse_vcf(vcf_file)
     data = prepare_data(snps, samples)
+    data1 = prepare_data1(snps, samples)
+    print(data1)
     generate_heatmap(data, samples)
+    generate_heatmap1(data1, samples)
 
 
 
