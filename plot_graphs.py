@@ -7,6 +7,7 @@ import os
 # Function to parse VCF file and extract SNP data
 def parse_vcf(vcf_file):
     snps = []
+    sample_names = []
     with open(vcf_file, 'r') as file:
         for line in file:
             if line.startswith('#'):
@@ -237,19 +238,21 @@ def generate_pie_chart(dictionary, title, filename):
 if __name__ == "__main__":
     
     # Load data
-    vcf_file = 'snp_call_snakemake/genes.vcf'
+    vcf_file = 'genes.vcf'
     snps, sample_names = parse_vcf(vcf_file)
 
     # Create dictionaries for functional and impact classes
     func_dict = count_functional_classes(snps)
     impact_dict = count_impact_classes(snps)
-    
+    print(func_dict)
+    print(impact_dict)
+
     # Create a heatmap matrix for the genes APP, SOD1, DYRK1A
     matrix = heatmap_matrix(snps, ['APP', 'SOD1', 'DYRK1A'], sample_names)
     data = prepare_data(snps, sample_names)
     
     # Generate heatmap
-    generate_heatmap(data, sample_names, "heatmap1.png")
+    #generate_heatmap(data, sample_names, "heatmap1.png")
     generate_heatmap1(matrix, sample_names, "heatmap2.png")
     
     # Generate pie charts

@@ -245,6 +245,8 @@ rule genes_of_interest:
 		report("genes.vcf", category="VCF files")
 	shell:
 		"""
+		touch {output}
+
 		# Selecting all lines with the words 'APP' or 'SOD1' or 'DYRK1A' in the annotated snps file
 		grep -i -E 'APP|SOD1|DYRK1A' {input} | grep -v 'intergenic_region' > {output}
 		
