@@ -251,7 +251,8 @@ rule genes_of_interest:
 		# Checks if file exist and has a size greater than 0
 		if [ ! -s {output} ]; then 
 			echo 'Error: genes VCF file not created' 
-			#exit 1 
+
+			# exit 1 
 		fi
 
 		# Creating heatmap image
