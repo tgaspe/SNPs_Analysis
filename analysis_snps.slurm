@@ -6,11 +6,13 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --job-name=snps_analysis
-#SBATCH --time=20:00   # Walltime in HH:MM:SS
+#SBATCH --time=60:00   # Walltime in HH:MM:SS
 #SBATCH --mem=15G     # Memory in gigabytes
-#SBATCH --cpus-per-task=1   # Number of CPU cores
+#SBATCH --cpus-per-task=8   # Number of CPU cores
 #SBATCH --output=snps_analysis.out   # Standard output file
 #SBATCH --error=snps_analysis.err   # Standard error file
+#SBATCH --mail-type=END,FAIL # Specify the type of events to receive notifications for (ALL, BEGIN, END, FAIL, REQUEUE, etc.)
+#SBATCH --mail-user=theodoro.gasperinterracamargo@student.kuleuven.be
 
 # Make the analysis script executable
 #chmod u+x analyze_GFF_features.sh

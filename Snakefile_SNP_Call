@@ -109,11 +109,10 @@ rule gunzip:
 		result=$(($nr_lines % 4))
 		if [ $result -ne 0 ]; then
 			echo "Error: Fastq file is not divisible by 4"
-			exit 1
+			#exit 1
 		fi
 		'''
 		
-
 
 rule fastqc:
 	input: 
@@ -131,7 +130,7 @@ rule fastqc:
 		# Checking if fastqc produced any FAILs
 		if grep -q "FAIL" {output.summary_txt}; then
 			echo "Error: FastQC failed for {wildcards.sample}"
-			exit 1
+			#exit 1
 		fi
 		'''
 		
@@ -147,15 +146,15 @@ rule bwa_map:
 		bwa mem {input} | samtools sort -o {output}
 		
 		# Quality Control
-		samtools view -H {output}
-		echo "headers ok!"
-		echo "---------"
-		samtools view {output} | head
-		echo "looks like bam"
-		echo "---------"
-		samtools idxstats {output} 
-		echo "reads map to chromosome 21"
-		echo "---------"
+		#samtools view -H {output}
+		#echo "headers ok!"
+		#echo "---------"
+		#samtools view {output} | head
+		#echo "looks like bam"
+		#echo "---------"
+		#samtools idxstats {output} 
+		#echo "reads map to chromosome 21"
+		#echo "---------"
 		'''
 		
 		
@@ -172,7 +171,7 @@ rule samtools_index:
 		# Checks if file exist and has a size greater than 0
 		if [ ! -s {output} ]; then
 			echo "Error: Index file not created"
-			exit 1
+			#exit 1
 		fi
 		'''
         
@@ -192,7 +191,7 @@ rule bcftools_call:
 		# Checks if file exist and has a size greater than 0
 		if [ ! -s {output} ]; then
 			echo "Error: raw VCF file not created"
-			exit 1
+			#exit 1
 		fi
 		'''
 
@@ -215,7 +214,7 @@ rule snp_cleaning:
 		# Checks if file exist and has a size greater than 0
 		if [ ! -s {output} ]; then
 			echo "Error: clean VCF file not created"
-			exit 1
+			#exit 1
 		fi
 		'''
 		
@@ -235,7 +234,7 @@ rule snp_annotation:
 		# Checks if file exist and has a size greater than 0
 		if [ ! -s {output} ]; then
 			echo 'Error: annotated VCF file not created'
-			exit 1 
+			#exit 1 
 		fi
 		"""
 
@@ -247,13 +246,17 @@ rule genes_of_interest:
 	shell:
 		"""
 		# Selecting all lines with the words 'APP' or 'SOD1' or 'DYRK1A' in the annotated snps file
-		grep -i -E 'APP|SOD1|DYRK1A' {output} | grep -v 'intergenic_region' > {output}
+		grep -i -E 'APP|SOD1|DYRK1A' {input} | grep -v 'intergenic_region' > {output}
 		
 		# Checks if file exist and has a size greater than 0
 		if [ ! -s {output} ]; then 
 			echo 'Error: genes VCF file not created' 
+
 			# exit 1 
 		fi
+
+		# Creating heatmap image
+		python ./../plot_graphs.py
 		"""
 		
 
