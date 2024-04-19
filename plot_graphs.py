@@ -239,6 +239,7 @@ if __name__ == "__main__":
     
     # Load data
     vcf_file = 'genes.vcf'
+    #vcf_file = 'test.vcf'
     snps, sample_names = parse_vcf(vcf_file)
 
     # Create dictionaries for functional and impact classes

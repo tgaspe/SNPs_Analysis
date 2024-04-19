@@ -248,7 +248,8 @@ rule genes_of_interest:
 		touch {output}
 
 		# Selecting all lines with the words 'APP' or 'SOD1' or 'DYRK1A' in the annotated snps file
-		grep -i -E 'APP|SOD1|DYRK1A' {input} | grep -v 'intergenic_region' > {output}
+		#grep -i -E 'APP|SOD1|DYRK1A' {input} | grep -v 'intergenic_region' > {output}
+		grep -i -E '\|APP\||\|SOD1\||\|DYRK1A\|' {input} > {output}
 		
 		# Checks if file exist and has a size greater than 0
 		if [ ! -s {output} ]; then 
