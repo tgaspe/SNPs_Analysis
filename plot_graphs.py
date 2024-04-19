@@ -123,13 +123,14 @@ def generate_heatmap1(data, samples):
     plt.savefig('heatmap1.png', dpi=300, bbox_inches='tight')
     #plt.show()
 
+
 if __name__ == "__main__":
     # Example usage
     vcf_file = 'genes.vcf'
     snps, samples = parse_vcf(vcf_file)
     data = prepare_data(snps, samples)
     data1 = prepare_data1(snps, samples)
-    print(data1)
+    #print(data1)
     generate_heatmap(data, samples)
     generate_heatmap1(data1, samples)
 
