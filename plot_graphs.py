@@ -123,6 +123,28 @@ def generate_heatmap1(data, samples):
     plt.savefig('heatmap1.png', dpi=300, bbox_inches='tight')
     #plt.show()
 
+# TODO: Implement the following functions
+def count_impact_classes(snps):
+    impact_classes = {}
+    for snp in snps:
+        if snp["impact"] in impact_classes:
+            impact_classes[snp["impact"]] += 1
+        else:
+            impact_classes[snp["impact"]] = 1
+    return impact_classes
+
+def generate_pie_chart(impact_classes):
+    plt.figure(figsize=(8, 8))
+    plt.pie(impact_classes.values(), labels=impact_classes.keys(), autopct='%1.1f%%', startangle=140)
+    plt.axis('equal')  # Equal aspect ratio ensures that pie is drawn as a circle.
+    plt.title('Impact Classes Distribution')
+    plt.savefig('pie_chart.png', dpi=300)
+    #plt.show()
+
+# TODO: implement this function
+def count_functional_classes():
+    pass
+
 if __name__ == "__main__":
     # Example usage
     vcf_file = 'genes.vcf'
