@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 from matplotlib.colors import ListedColormap
 from matplotlib.colorbar import ColorbarBase
 import os
+import sys
 
 # Function to parse VCF file and extract SNP data
 def parse_vcf(vcf_file):
@@ -91,57 +92,21 @@ def generate_bar_chart(impact_classes, title, xlabel, ylabel, filename):
     plt.savefig(filename, dpi=300)
     #plt.show()
 
-# Function count the number of SNPs per sample and gene (APP, SOD1, DYRK1A)
-# def heatmap_matrix(snps, gene_list, samples):
-#     data = np.zeros((3, len(samples)))
-#     for snp in snps:
-#         #for gene in gene_list:
-#         if snp["gene"] == "APP":
-#             for j, genotype in enumerate(snp["genotypes"]):
-#                 # Homozygous alternative
-#                 if genotype == '1/1':
-#                     data[0, j] += 1  
-#                 # Heterozygous
-#                 elif genotype == '0/1' or genotype == '1/0':
-#                     data[0, j] += 1  
-#                 else: # Missing data or homozygous reference
-#                     continue 
-#         elif snp["gene"] == "SOD1":
-#             for j, genotype in enumerate(snp["genotypes"]):
-#                 # Homozygous alternative
-#                 if genotype == '1/1':
-#                     data[1, j] += 1  
-#                 # Heterozygous
-#                 elif genotype == '0/1' or genotype == '1/0':
-#                     data[1, j] += 1  
-#                 else:
-#                     continue
-#         elif snp["gene"] == "DYRK1A":
-#             for j, genotype in enumerate(snp["genotypes"]):
-#                 # Homozygous alternative
-#                 if genotype == '1/1':
-#                     data[2, j] += 1  
-#                 # Heterozygous
-#                 elif genotype == '0/1' or genotype == '1/0':
-#                     data[2, j] += 1  
-#                 else:
-#                     continue
-#     return data
 
 # Function count the number of SNPs per sample and gene (APP, SOD1, DYRK1A)
 def heatmap_matrix(snps, gene_list, samples_list):
     # Generating a matrix filed with zeros. rows = genes, columns = samples
     data = np.zeros((len(gene_list), len(samples_list)))
     for snp in snps:
-        for gene in gene_list:
+        for i, gene in enumerate(gene_list):
             if snp["gene"] == gene:
                 for j, genotype in enumerate(snp["genotypes"]):
                     # Homozygous alternative
                     if genotype == '1/1':
-                        data[0, j] += 1  
+                        data[i, j] += 1  
                     # Heterozygous
                     elif genotype == '0/1' or genotype == '1/0':
-                        data[0, j] += 1  
+                        data[i, j] += 1  
                     else: # Missing data or homozygous reference
                         continue 
     return data
@@ -159,20 +124,6 @@ def prepare_data(snps, samples):
             else:
                 data[i, j] = -1 # Missing data
     return data
-
-# General function to generate heatmap
-# def generate_heatmap(dictionary, title, xlabel, ylabel, filename):
-#     plt.figure(figsize=(10, 8))
-#     plt.imshow(dictionary, cmap="coolwarm", aspect='auto', interpolation='nearest')
-#     plt.title(title)
-#     plt.xlabel(xlabel)
-#     plt.xticks(np.arange(len(dictionary.keys())), dictionary.keys(), rotation=90)
-#     plt.ylabel(ylabel)
-#     for i in range(dictionary.keys()):
-#         for j in range(data.shape[1]):
-#             plt.text(j, i, data[i, j], ha='center', va='center', color='black')
-#     plt.tight_layout()
-#     plt.savefig('heatmap1.png', dpi=300, bbox_inches='tight')
 
 # Function to generate heatmap
 def generate_heatmap(data, samples, filename='heatmap.png'):
@@ -208,7 +159,7 @@ def generate_heatmap1(data, samples, filename='heatmap.png'):
     plt.xlabel('Samples')
     plt.xticks(np.arange(len(samples)), samples, rotation=90)
     plt.ylabel('Genes')
-    plt.yticks(np.arange(len(data)), range(len(data)))
+    plt.yticks(np.arange(len(data)), ['APP', 'SOD1', 'DYRK1A'])
     plt.tight_layout()
     plt.savefig(filename, dpi=300, bbox_inches='tight')
     #plt.show()
@@ -227,8 +178,9 @@ def generate_bar_chart(dictionary, title, xlabel, ylabel, filename, rotation=90)
 # Pie chart
 def generate_pie_chart(dictionary, title, filename):
     plt.figure(figsize=(8, 8))
-    plt.pie(dictionary.values(), labels=dictionary.keys(), autopct='%1.1f%%', startangle=140)
+    plt.pie(dictionary.values(), autopct='%1.2f%%', startangle=140)
     plt.axis('equal')  # Equal aspect ratio ensures that pie is drawn as a circle.
+    plt.legend(dictionary.keys(), loc='lower right')
     plt.title(title)
     plt.savefig(filename, dpi=300)
     #plt.show()
@@ -237,40 +189,29 @@ def generate_pie_chart(dictionary, title, filename):
 
 if __name__ == "__main__":
     
-    # Load data
-    vcf_file = 'genes.vcf'
-    #vcf_file = 'test.vcf'
+    # Usage: python3 plot_graphs.py <argument> <vcf_file>
+    if len(sys.argv) != 3:
+        print("Usage: python3 plot_graphs.py <argument> <vcf_file>")
+        exit(1)
+    
+    # Parse VCF file
+    vcf_file = sys.argv[2]
     snps, sample_names = parse_vcf(vcf_file)
 
-    # Create dictionaries for functional and impact classes
-    func_dict = count_functional_classes(snps)
-    impact_dict = count_impact_classes(snps)
-    print(func_dict)
-    print(impact_dict)
-
-    # Create a heatmap matrix for the genes APP, SOD1, DYRK1A
-    matrix = heatmap_matrix(snps, ['APP', 'SOD1', 'DYRK1A'], sample_names)
-    data = prepare_data(snps, sample_names)
+    if (sys.argv[1] == 'impact'):
+        # Generate pie and bar chart for impact classes
+        generate_pie_chart(count_impact_classes(snps), 'Impact Classes Distribution', 'impact_pie_chart.png')
+        generate_bar_chart(count_impact_classes(snps), 'Impact Classes Distribution', 'Impact Class', 'Number of SNPs', 'impact_bar_chart.png')
+    elif (sys.argv[1] == 'functional'):
+        # Generate pie and bar chart for functional classes
+        generate_pie_chart(count_functional_classes(snps), 'Functional Classes Distribution', 'functional_pie_chart.png')
+        generate_bar_chart(count_functional_classes(snps), 'Functional Classes Distribution', 'Functional Class', 'Number of SNPs', 'functional_bar_chart.png')
+    elif (sys.argv[1] == 'heatmap'):
+        # Create a heatmap matrix for the genes APP, SOD1, DYRK1A
+        matrix = heatmap_matrix(snps, ['APP', 'SOD1', 'DYRK1A'], sample_names)
+        generate_heatmap1(matrix, sample_names, "heatmap.png")
+    else:
+        print("Invalid argument. Please enter 'impact', 'functional' or 'heatmap' as an argument")
+        exit(1)
     
-    # Generate heatmap
-    #generate_heatmap(data, sample_names, "heatmap1.png")
-    generate_heatmap1(matrix, sample_names, "heatmap2.png")
-    
-    # Generate pie charts
-    generate_pie_chart(impact_dict, 'Impact Classes Distribution', 'pie_impact_classes.png')
-    generate_pie_chart(func_dict, 'Functional Classes Distribution', 'pie_functional_classes.png')
-    
-    # Generate bar charts
-    generate_bar_chart(impact_dict, 'Impact Classes Distribution', 'Impact Class', 'Number of SNPs', 'impact_classes.png')
-    generate_bar_chart(func_dict, 'Functional Classes Distribution', 'Functional Class', 'Number of SNPs', 'functional_classes.png')
-
-    
-    # data = prepare_data(snps, samples)
-    # data1 = prepare_data1(snps, samples)
-
-    # generate_pie_chart(count_impact_classes(snps), 'Impact Classes Distribution', 'pie_impact_classes.png')
-    # generate_pie_chart(filtered_func_dict, 'Functional Classes Distribution', 'pie_functional_classes.png')
-    # generate_bar_chart(count_impact_classes(snps), 'Impact Classes Distribution', 'Impact Class', 'Number of SNPs', 'impact_classes.png')
-    # generate_bar_chart(count_functional_classes(snps), 'Functional Classes Distribution', 'Functional Class', 'Number of SNPs', 'functional_classes.png')
-    # generate_bar_chart(filtered_func_dict, 'Functional Classes Distribution', 'Functional Class', 'Number of SNPs', '1111functional_classes.png')
-    # print(count_functional_classes(snps))
+    print("Done!")
