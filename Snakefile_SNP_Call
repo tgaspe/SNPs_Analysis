@@ -146,15 +146,11 @@ rule bwa_map:
 		bwa mem {input} | samtools sort -o {output}
 		
 		# Quality Control
-		#samtools view -H {output}
-		#echo "headers ok!"
-		#echo "---------"
-		#samtools view {output} | head
-		#echo "looks like bam"
-		#echo "---------"
-		#samtools idxstats {output} 
-		#echo "reads map to chromosome 21"
-		#echo "---------"
+		# Checks if file exist and has a size greater than 0
+		if [ ! -s {output} ]; then
+			echo "Error: Bam file not created"
+			exit 1
+		fi
 		'''
 		
 		
@@ -225,8 +221,10 @@ rule snp_annotation:
 		SNPEFF_JAR = "/lustre1/project/stg_00079/teaching/I0U19a_conda_2024/share/snpeff-5.2-0/snpEff.jar"
 	output:
 		report("calls/annotated_snps.vcf", category="VCF files"),
-		report("impact_pie_chart.png", category="Images"),
-		report("impact_bar_chart.png", category="Images")
+		report("images/impact_pie_chart.png", category="Images"),
+		report("images/impact_bar_chart.png", category="Images"),
+		report("snpEff_genes.txt", category="snpEff"),
+		report("snpEff_summary.html", category="snpEff"),
 	shell:
 		"""
 		# Annotate SNPs using SNPeff
@@ -236,11 +234,12 @@ rule snp_annotation:
 		# Checks if file exist and has a size greater than 0
 		if [ ! -s {output} ]; then
 			echo 'Error: annotated VCF file not created'
-			#exit 1 
+			exit 1 
 		fi
 
 		# Creating pie and bar chart images
 		python3 ./../plot_graphs.py impact calls/annotated_snps.vcf
+		python3 ./../plot_graphs.py functional calls/annotated_snps.vcf
 		"""
 
 rule genes_of_interest:
@@ -251,14 +250,12 @@ rule genes_of_interest:
 		heatmap = report("heatmap.png", category="Images")
 	shell:
 		"""
-		#touch {output.vcf}
-
 		# Selecting all lines with the words 'APP' or 'SOD1' or 'DYRK1A' in the annotated snps file
-		#grep -i -E 'APP|SOD1|DYRK1A' {input} | grep -v 'intergenic_region' > {output}
-		grep -i -E '\|APP\||\|SOD1\||\|DYRK1A\|' {input} > {output.vcf}
+		grep '#' {input} > {output.vcf}
+		grep -i -E '\|APP\||\|SOD1\||\|DYRK1A\|' {input} >> {output.vcf}
 		
 		# Checks if file exist and has a size greater than 0
-		if [ ! -s {output} ]; then 
+		if [ ! -s {output.vcf} ]; then 
 			echo 'Error: genes VCF file not created' 
 			exit 1 
 		fi

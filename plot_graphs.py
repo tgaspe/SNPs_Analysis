@@ -178,14 +178,19 @@ def generate_bar_chart(dictionary, title, xlabel, ylabel, filename, rotation=90)
 # Pie chart
 def generate_pie_chart(dictionary, title, filename):
     plt.figure(figsize=(8, 8))
-    plt.pie(dictionary.values(), autopct='%1.2f%%', startangle=140)
+    patches, texts, autotexts = plt.pie(dictionary.values(), autopct=my_autopct, startangle=140)
     plt.axis('equal')  # Equal aspect ratio ensures that pie is drawn as a circle.
-    plt.legend(dictionary.keys(), loc='lower right')
+    plt.legend(patches, dictionary.keys(), loc='lower right', fontsize='small')
     plt.title(title)
+    for autotext in autotexts:
+        autotext.set_horizontalalignment('center')
+        autotext.set_verticalalignment('center')
+    plt.tight_layout()  # Adjust layout to prevent overlapping
     plt.savefig(filename, dpi=300)
     #plt.show()
 
-
+def my_autopct(pct):
+    return '{:.2f}%'.format(pct) if pct >= 1.5 else ''
 
 if __name__ == "__main__":
     
@@ -200,12 +205,22 @@ if __name__ == "__main__":
 
     if (sys.argv[1] == 'impact'):
         # Generate pie and bar chart for impact classes
-        generate_pie_chart(count_impact_classes(snps), 'Impact Classes Distribution', 'impact_pie_chart.png')
-        generate_bar_chart(count_impact_classes(snps), 'Impact Classes Distribution', 'Impact Class', 'Number of SNPs', 'impact_bar_chart.png')
+        generate_pie_chart(count_impact_classes(snps), 'SNPs Impact Distribution', 'images/impact_pie_chart.png')
+        generate_bar_chart(count_impact_classes(snps), 'SNPs Impact Distribution', 'Impact Class', 'Number of SNPs', 'images/impact_bar_chart.png', 0)
     elif (sys.argv[1] == 'functional'):
         # Generate pie and bar chart for functional classes
-        generate_pie_chart(count_functional_classes(snps), 'Functional Classes Distribution', 'functional_pie_chart.png')
-        generate_bar_chart(count_functional_classes(snps), 'Functional Classes Distribution', 'Functional Class', 'Number of SNPs', 'functional_bar_chart.png')
+        snps_classes = count_functional_classes(snps)
+        # Summing up percentages below the threshold
+        total = sum(snps_classes.values())
+        small_total = sum(val for key, val in snps_classes.items() if val/total < 0.015)
+        # Creating a modified dictionary with 'Others'
+        modified_dictionary = {key: val for key, val in snps_classes.items() if val/total >= 0.015}
+        modified_dictionary['Others'] = small_total
+        
+        generate_pie_chart(modified_dictionary, 'Functional Classes Distribution', 'images/functional_pie_chart.png')
+        #generate_pie_chart(count_functional_classes(snps), 'Functional Classes Distribution', 'images/functional_pie_chart.png')
+        generate_bar_chart(modified_dictionary, 'Functional Classes Distribution', 'Functional Class', 'Number of SNPs', 'images/functional_bar_chart.png', 0)
+        #generate_bar_chart(count_functional_classes(snps), 'Functional Classes Distribution', 'Functional Class', 'Number of SNPs', 'images/functional_bar_chart.png')
     elif (sys.argv[1] == 'heatmap'):
         # Create a heatmap matrix for the genes APP, SOD1, DYRK1A
         matrix = heatmap_matrix(snps, ['APP', 'SOD1', 'DYRK1A'], sample_names)
