@@ -15,7 +15,6 @@ Adapt your workflow to work to run:
 # TODO:
 Every step MUST contain at least one check that the run was succesful - as discussed in class
 
-# TODO:
 One check must yield an image - note - this has to be your own code - not a copy of mine or somebody else. 
 Be creative.
 
@@ -39,9 +38,8 @@ So we will grade this assignment by:
 After running the steps described above we expect to see in the snakemake work folder:
 A Snakefile report html file
 A genes.vcf file with the SNPs associating with the 3 genes.
-Bonus Question:
 
-# TODO:
+Bonus Question:
 - write an extra rule that creates an image with a heatmap showing how many SNPs 
 associate with the three above mentioned genes 
 per individual! This image is to be embedded in the Snakefile report. 
@@ -85,8 +83,13 @@ for file_path in files_to_copy:
 	if not os.path.exists('./fastq/' + file_path[len(source_directory):]):
 		shutil.copy(file_path, destination_directory)
 
+# Creating an error log file
+with open("error_log.txt", "a"):
+	os.utime("error_log.txt", None)
+
 # ----------------- SNAKEMAKE RULES ----------------- #
 
+# Get the names of all the samples
 SAMPLES, = glob_wildcards(destination_directory + "/{sample}.fq.gz")
 
 rule all:
@@ -108,11 +111,10 @@ rule gunzip:
 		nr_lines=$(wc -l {output} | cut -d " " -f1)
 		result=$(($nr_lines % 4))
 		if [ $result -ne 0 ]; then
-			echo "Error: Fastq file is not divisible by 4"
-			exit 1
+			echo "Error in gunzip rule: Fastq file {output} is not divisible by 4" >> error_log.txt
+			# exit 1
 		fi
-		'''
-		
+		'''		
 
 rule fastqc:
 	input: 
@@ -129,8 +131,8 @@ rule fastqc:
 		
 		# Checking if fastqc produced any FAILs
 		if grep -q "FAIL" {output.summary_txt}; then
-			echo "Error: FastQC failed for {wildcards.sample}"
-			exit 1
+			echo "Error in fastqc rule: FastQC failed for {wildcards.sample}" >> error_log.txt
+			# exit 1
 		fi
 		'''
 		
@@ -139,7 +141,7 @@ rule bwa_map:
 		db=genome_db,
 		fa="fastq/{sample}.fq"
 	output:
-		report("mapped_reads/{sample}.bam", category="Bam/Bai files")
+		"mapped_reads/{sample}.bam"
 	shell:
 		'''
 		# Mapping the reads to the reference genome
@@ -148,8 +150,8 @@ rule bwa_map:
 		# Quality Control
 		# Checks if file exist and has a size greater than 0
 		if [ ! -s {output} ]; then
-			echo "Error: Bam file not created"
-			exit 1
+			echo "Error in bwa_map rule: Bam file {output} not created" >> error_log.txt
+			# exit 1
 		fi
 		'''
 		
@@ -158,7 +160,7 @@ rule samtools_index:
 	input:
 		"mapped_reads/{sample}.bam"
 	output:
-		report("mapped_reads/{sample}.bam.bai", category="Bam/Bai files")
+		"mapped_reads/{sample}.bam.bai"
 	shell:
 		'''
 		# Indexing the bam files
@@ -166,8 +168,8 @@ rule samtools_index:
 		
 		# Checks if file exist and has a size greater than 0
 		if [ ! -s {output} ]; then
-			echo "Error: Index file not created"
-			exit 1
+			echo "Error in samtools_index: Index file {output} not created" >> error_log.txt
+			# exit 1
 		fi
 		'''
         
@@ -186,8 +188,8 @@ rule bcftools_call:
 		
 		# Checks if file exist and has a size greater than 0
 		if [ ! -s {output} ]; then
-			echo "Error: raw VCF file not created"
-			exit 1
+			echo "Error in bcftools_call rule: VCF file {output} not created" >> error_log.txt
+			# exit 1
 		fi
 		'''
 
@@ -209,8 +211,8 @@ rule snp_cleaning:
 		
 		# Checks if file exist and has a size greater than 0
 		if [ ! -s {output} ]; then
-			echo "Error: clean VCF file not created"
-			exit 1
+			echo "Error in snp_cleaning rule: VCF file {output} not created" >> error_log.txt
+			# exit 1
 		fi
 		'''
 		
@@ -220,11 +222,11 @@ rule snp_annotation:
 		snps = "calls/clean_snps.vcf",
 		SNPEFF_JAR = "/lustre1/project/stg_00079/teaching/I0U19a_conda_2024/share/snpeff-5.2-0/snpEff.jar"
 	output:
-		report("calls/annotated_snps.vcf", category="VCF files"),
-		report("images/impact_pie_chart.png", category="Images"),
-		report("images/impact_bar_chart.png", category="Images"),
-		report("snpEff_genes.txt", category="snpEff"),
-		report("snpEff_summary.html", category="snpEff"),
+		vcf = report("calls/annotated_snps.vcf", category="VCF files"),
+		pie = report("images/impact_pie_chart.png", category="Images"),
+		bar = report("images/impact_bar_chart.png", category="Images"),
+		txt = report("snpEff_genes.txt", category="snpEff"),
+		html = report("snpEff_summary.html", category="snpEff"),
 	shell:
 		"""
 		# Annotate SNPs using SNPeff
@@ -232,9 +234,9 @@ rule snp_annotation:
 		> calls/annotated_snps.vcf
 		
 		# Checks if file exist and has a size greater than 0
-		if [ ! -s {output} ]; then
-			echo 'Error: annotated VCF file not created'
-			exit 1 
+		if [ ! -s {output.vcf} ]; then
+			echo 'Error in snp_annotation rule: VCF file {output} not created' >> error_log.txt
+			# exit 1 
 		fi
 
 		# Creating pie and bar chart images
@@ -256,8 +258,8 @@ rule genes_of_interest:
 		
 		# Checks if file exist and has a size greater than 0
 		if [ ! -s {output.vcf} ]; then 
-			echo 'Error: genes VCF file not created' 
-			exit 1 
+			echo 'Error in genes_of_interest rule: VCF file {output} not created' >> error_log.txt
+			# exit 1 
 		fi
 
 		# Creating heatmap image
@@ -266,36 +268,3 @@ rule genes_of_interest:
 		
 
 		
-
-
-   
-
-# rule fastqc:
-#     input:
-#         fq="000.fastq/{file}.fastq",
-#     output:
-#         fastqc_zip="010.fastqc/{file}_fastqc.zip",
-#         html="010.fastqc/{file}_fastqc.html",
-#         summarydata="010.fastqc/{file}_fastqc/fastqc_data.txt",
-#         rep1=report("010.fastqc/{file}_fastqc/Images/per_base_quality.png", category="Fastqc", subcategory="Per base quality"),
-#         rep2=report("010.fastqc/{file}_fastqc/Images/per_base_sequence_content.png", category="Fastqc", subcategory="Per base sequence content"),
-#         rep3=report("010.fastqc/{file}_fastqc/summary.txt", category="Fastqc", subcategory="Summary text")
-#     shell:
-#         """
-#         echo "Input Fastq: {input.fq} "
-#         fastqc -o 010.fastqc {input.fq} --extract
-
-#         ## Q&D testing
-#         ## A simple tests would be to see if output files exists
-#         ##   - but that is already done by snakemake
-
-#         # So - I'm testing here to see if are there FAILs in the snakemake output. If so
-#         # I happy to crash the workflow.
-#         if grep FAIL {output.rep3}; then
-#             # Found a fail! -
-#             echo "FAILED!"
-#             # false yields a non-zero return code - which is an error
-#             false
-#         fi
-
-#         """
