@@ -12,7 +12,6 @@ Adapt your workflow to work to run:
 - SNP normalization & filtering (done)
 - SNP annotation (using SNPeff) (done)
 
-# TODO:
 Every step MUST contain at least one check that the run was succesful - as discussed in class
 
 One check must yield an image - note - this has to be your own code - not a copy of mine or somebody else. 
@@ -223,8 +222,10 @@ rule snp_annotation:
 		SNPEFF_JAR = "/lustre1/project/stg_00079/teaching/I0U19a_conda_2024/share/snpeff-5.2-0/snpEff.jar"
 	output:
 		vcf = report("calls/annotated_snps.vcf", category="VCF files"),
-		pie = report("images/impact_pie_chart.png", category="Images"),
-		bar = report("images/impact_bar_chart.png", category="Images"),
+		pie = report("images/impact_pie_chart.png", category="SNP Impact Images"),
+		bar = report("images/impact_bar_chart.png", category="SNP Impact Images"),
+		pie1 = report("images/snp_classes_pie_chart.png", category="SNP Classes Images"),
+		bar1 = report("images/snp_classes_bar_chart.png", category="SNP Classes Images"),
 		txt = report("snpEff_genes.txt", category="snpEff"),
 		html = report("snpEff_summary.html", category="snpEff"),
 	shell:
@@ -249,7 +250,7 @@ rule genes_of_interest:
 		"calls/annotated_snps.vcf"
 	output: 
 		vcf = report("genes.vcf", category="VCF files"),
-		heatmap = report("heatmap.png", category="Images")
+		heatmap = report("heatmap.png", category="Genes of Interest Heatmap")
 	shell:
 		"""
 		# Selecting all lines with the words 'APP' or 'SOD1' or 'DYRK1A' in the annotated snps file

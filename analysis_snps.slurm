@@ -19,3 +19,4 @@ export PATH=/lustre1/project/stg_00079/teaching/I0U19a_conda_2024/bin/:$PATH
 # Run the SNPs analysis script
 snakemake -c8 -s "./Snakefile_SNP_Call"
 snakemake -c8 -s "./Snakefile_SNP_Call" --report report.html
+zip submission.zip Snakefile_SNP_Call plot_graphs.py analysis_snps.slurm snp_call_snakemake/genes.vcf snp_call_snakemake/report.html
