@@ -4,55 +4,8 @@ import snakemake.io
 import glob
 
 
-'''
-Adapt your workflow to work to run:
-- Fastqc 						(done)
-- BWA 							(done)
-- SNP calling using bcftools 	(done)
-- SNP normalization & filtering (done)
-- SNP annotation (using SNPeff) (done)
-
-Every step MUST contain at least one check that the run was succesful - as discussed in class
-
-One check must yield an image - note - this has to be your own code - not a copy of mine or somebody else. 
-Be creative.
-
-Document your Snakefile & the code embedded in your Snakefile
-
-Generate a Snakefile report (an actual html file).
-
-Write an extra rule (so not a part of an existing rule) that extracts any SNPs into 
-a new VCF file that (according to SNPeff) associates with APP, SOD21 and DYRK1A. 
-This VCF file must be called genes.vcf and be in the root of your Snakemake work folder
-
-You must run your snakemake as a SLURM job (using `sbatch`)
-
-Your workflow should run with JUST the snakefile (see points later as well).
-So we will grade this assignment by:
-- create a work folder
-- copy your Snakefile into that folder
-- run snakemake with sbatch
-- generate the snakemake report
-
-After running the steps described above we expect to see in the snakemake work folder:
-A Snakefile report html file
-A genes.vcf file with the SNPs associating with the 3 genes.
-
-Bonus Question:
-- write an extra rule that creates an image with a heatmap showing how many SNPs 
-associate with the three above mentioned genes 
-per individual! This image is to be embedded in the Snakefile report. 
-		sample 1 sample 2 sample 3
-gene 1	6		0		1
-gene 2  3		1		0
-gene 3  1		4		1
-'''
-
 # Chromosome 21 fasta file
 genome_db = "/lustre1/project/stg_00079/teaching/hg38_21/chr21.fa"
-
-# Changing dir to $VSC_SCRATCH
-#os.chdir("/scratch/leuven/359/vsc35907/")
 
 # Creating working directory if it doest exist already
 if not os.path.exists("./snp_call_snakemake"):
